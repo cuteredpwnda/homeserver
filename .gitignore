@@ -1,0 +1,8 @@
+# ignore test files
+*_test.sh
+
+# ignore sensor files
+*/sensors/*
+
+# ignore data
+/data/*
