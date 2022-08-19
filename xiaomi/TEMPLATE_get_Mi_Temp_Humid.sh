@@ -17,9 +17,12 @@ if [ -z "$bt" ]
     else
         temphexa=$(echo $bt | awk -F ' ' '{print $12$11}'| tr [:lower:] [:upper:] )
         humhexa=$(echo $bt | awk -F ' ' '{print $13}'| tr [:lower:] [:upper:])
+        batthexa=$(echo $bt | awk -F ' ' '{print $14}'| tr [:lower:] [:upper:])
         temperature100=$(echo "ibase=16; $temphexa" | bc)
         humidity=$(echo "ibase=16; $humhexa" | bc)
-        temperature=$(echo "scale=2;$temperature100/100"|bc)
+        temperature=$(echo "scale=2;$temperature100/100" | bc)
+        battery1000=$(echo "ibase=16;$batthexa" | bc)
+        battery=$(echo "scale=3; $battery1000/1000" | bc)
         sensor_name_idx="$sensor_name"
-        echo $sensor_name_idx", "$temperature", "$humidity
+        echo $sensor_name_idx", "$temperature", "$humidity", "$battery
 fi

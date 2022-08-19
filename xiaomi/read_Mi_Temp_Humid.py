@@ -10,7 +10,7 @@ def get_temperature(sensor):
     success = False
     retries = 0
     while not success:
-        with subprocess.Popen(['sh', '{}/./{}'.format(BASEPATH, sensor)], stdout=subprocess.PIPE) as proc:
+        with subprocess.Popen(['sh', '{}/sensors/./{}'.format(BASEPATH, sensor)], stdout=subprocess.PIPE) as proc:
             while True:
                 line = proc.stdout.readline().decode('utf-8').rstrip()
                 print(line)
@@ -30,31 +30,34 @@ def get_temperature(sensor):
                     return
                 else:
                     try:
-                        l, t, h = line.rstrip().split(', ')
+                        l, t, h, b = line.rstrip().split(', ')
                     except Exception as e:
                         print('Something went wrong parsing line {} trying again.'.format(line))
                         break
 
                     # create object
-                    output = Temperature(l, t, h)
+                    output = SensorReading(l, t, h, b)
                     print('Got data: {}'.format(output))
                     if output.is_valid():
                         output.write_to_file()
                         success = True
 
-class Temperature:
-    def __init__(self, location, temperature, humidity):
+class SensorReading:
+    def __init__(self, location, temperature, humidity, battery):
         self.timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         self.location = str(location)
         self.temperature = float(temperature)
         self.humidity = int(humidity)
+        self.battery = float(battery)
 
     def __str__(self):
-        return '{}, {}, {}°C, {}%'.format(self.timestamp, self.location, self.temperature, self.humidity)
+        return '{}, {}, {}°C, {}%, {}V'.format(self.timestamp, self.location, self.temperature, self.humidity, self.battery)
     
     def write_to_file(self):
         path = os.path.join(BASEPATH, '../data/temperature.csv')
-        print(path)
+        if not os.path.exists(path):
+            with open(path, 'w') as f:
+                f.write('timestamp,location,temperature,humidity\n')
         with open(path, 'a') as f:
             f.write('{}\n'.format(self))
 
@@ -63,10 +66,11 @@ class Temperature:
             return False
         if self.humidity > 100 or self.humidity < 0:
             return False
+        if self.battery > 3.5 or self.battery < 2.5:
+            return False
         return True
 
 if __name__ == "__main__":
-    sensors = glob.glob(BASEPATH + '/sensors/*Mi_Temp_Humid_*.sh')
-    print(sensors)
-    #for sensor in sensors:
-    #    get_temperature(sensor)
+    sensors = [x.split('/')[-1] for x in glob.glob(BASEPATH + '/sensors/*Mi_Temp_Humid_*.sh')]
+    for sensor in sensors:
+        get_temperature(sensor)
