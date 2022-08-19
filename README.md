@@ -1,7 +1,7 @@
 # Description
 This repository is a collection of scripts and tools for my homeserver.
 
-The script in the xiaomi folder lets you read data from a second gen Xiaomi Mi Temperature and Humidity sensor of the second generation via bluetooth and write it to a .csv file.
+The script in the xiaomi folder lets you read data from a [Xiaomi Mi Temperature and Humidity sensor](https://www.mi.com/de/product/mi-temperature-and-humidity-monitor-2/) of the second generation via bluetooth and write it to a .csv file.
 ## How to use the Xiaomi Mi Temperature and Humidity Sensor script
 1. Place the sensor in range of your bluetooth device
 2. Scan for the sensor with `bluetoothctl scan on`, it should show up like this: `[NEW] Device A4:XX:XX:XX:XX:XX LYWSD03MMC`
