@@ -57,7 +57,7 @@ class SensorReading:
         path = os.path.join(BASEPATH, '../data/temperature.csv')
         if not os.path.exists(path):
             with open(path, 'w') as f:
-                f.write('timestamp,location,temperature,humidity,battery\n')
+                f.write('timestamp, location, temperature, humidity, battery\n')
         with open(path, 'a') as f:
             f.write('{}\n'.format(self))
 
