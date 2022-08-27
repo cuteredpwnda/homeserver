@@ -3,7 +3,20 @@ import time
 from datetime import datetime
 import glob
 import subprocess
+import dotenv
+from influxdb import InfluxDBClient
+
 BASEPATH = os.path.dirname(os.path.abspath(__file__))
+
+url="http://localhost:8086"
+
+env = dotenv.load_dotenv()
+
+CLIENT = InfluxDBClient(host=os.getenv('INFLUXDB_HOST'),
+                        port=os.getenv('INFLUXDB_PORT'),
+                        username=os.getenv('INFLUXDB_USER'),
+                        password=os.getenv('INFLUXDB_PASSWORD'),
+                        database=os.getenv('INFLUXDB_DATABASE'))   
 
 def get_temperature(sensor):
     # Get temperature from sensor
@@ -40,18 +53,19 @@ def get_temperature(sensor):
                     print('Got data: {}'.format(output))
                     if output.is_valid():
                         output.write_to_file()
+                        output.write_to_influxdb()
                         success = True
 
 class SensorReading:
     def __init__(self, location, temperature, humidity, battery):
-        self.timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        self.timestamp = datetime.now()
         self.location = str(location)
         self.temperature = float(temperature)
         self.humidity = int(humidity)
         self.battery = float(battery)
 
     def __str__(self):
-        return '{}, {}, {}°C, {}%, {}V'.format(self.timestamp, self.location, self.temperature, self.humidity, self.battery)
+        return '{}, {}, {}°C, {}%, {}V'.format(self.timestamp.strftime('%Y-%m-%dT%H:%M:%S'), self.location, self.temperature, self.humidity, self.battery)
     
     def write_to_file(self):
         path = os.path.join(BASEPATH, '../data/temperature.csv')
@@ -60,6 +74,23 @@ class SensorReading:
                 f.write('timestamp, location, temperature, humidity, battery\n')
         with open(path, 'a') as f:
             f.write('{}\n'.format(self))
+    
+    def write_to_influxdb(self):
+        data = [
+            {
+                'measurement': 'temp_sensor',
+                'tags': {
+                    'location': self.location
+                },
+                'time': self.timestamp,
+                'fields': {
+                    'temperature': self.temperature,
+                    'humidity': self.humidity,
+                    'battery': self.battery
+                }
+            }
+        ]
+        CLIENT.write_points(data)
 
     def is_valid(self):
         if self.temperature > 60 or self.temperature < -10:
