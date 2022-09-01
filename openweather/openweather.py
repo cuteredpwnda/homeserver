@@ -166,8 +166,8 @@ def getDailyForecastData(cnt = 7) -> list:
                 weather.location = city['name']
                 weather.coords = city['coord']
                 weather.data['date'] = datetime.fromtimestamp(int(forecast['dt'])).strftime("%Y-%m-%d") # convert unix timestamp to date as string
-                weather.data['sunrise'] = forecast['sunrise']
-                weather.data['sunset'] = forecast['sunset']
+                weather.data['sunrise'] = datetime.fromtimestamp(int(forecast['sunrise'])).strftime("%H:%M:%S")
+                weather.data['sunset'] = datetime.fromtimestamp(int(forecast['sunset'])).strftime("%H:%M:%S")
 
                 # collect general weather data
                 weather_desc = forecast['weather'][0]
