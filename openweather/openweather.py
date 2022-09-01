@@ -134,7 +134,7 @@ def getCurrentData() -> WeatherReport:
         print('Error: {}'.format(e))
         return None
 
-def getDailyForecastData(cnt:int = 7) -> list(WeatherReport):
+def getDailyForecastData(cnt = 7) -> list:
     print('Getting forecast data from openweathermap for {} days'.format(cnt))
     API_FORECAST_URL='{}forecast/daily?lat={}&lon={}&appid={}&cnt={}&units={}&lang={}'.format(API_BASE_URL, LAT, LON, API_KEY, cnt, UNITS, LANG)    
     results = []
@@ -200,7 +200,6 @@ def getDailyForecastData(cnt:int = 7) -> list(WeatherReport):
                 results.append(weather)
         else:
             print('Error: {}, response: {}'.format(response.status_code, response.content))
-        
         return results            
     except Exception as e:
         print('Error: {}'.format(e))
@@ -217,8 +216,6 @@ if __name__ == "__main__":
     parser.add_argument('--ignore_db', action='store_true', default=False, help="don't write to influxdb, good for testing")
     
     args = parser.parse_args()
-    print(args)
-
     # init db connection
     db_available = False
 
@@ -252,7 +249,7 @@ if __name__ == "__main__":
     if args.forecast:
         if args.numdays > 1 and args.numdays <= 16:
             # get daily forecast data
-            forecast_list = getDailyForecastData()
+            forecast_list = getDailyForecastData(args.numdays)
             for forecast in forecast_list:
                 if forecast.is_valid() and db_available:
                     forecast.write_to_influxdb(CLIENT)
