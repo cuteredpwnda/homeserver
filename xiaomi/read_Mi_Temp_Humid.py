@@ -16,7 +16,7 @@ CLIENT = InfluxDBClient(host=os.getenv('INFLUXDB_HOST'),
                         port=os.getenv('INFLUXDB_PORT'),
                         username=os.getenv('INFLUXDB_USER'),
                         password=os.getenv('INFLUXDB_PASSWORD'),
-                        database=os.getenv('INFLUXDB_DATABASE'))   
+                        database=os.getenv('INFLUXDB_DATABASE'))
 
 def get_temperature(sensor):
     # Get temperature from sensor
