@@ -71,6 +71,7 @@ class WeatherReport:
         ]
         CLIENT.write_points(report_data)
 
+    # TODO improve validity check
     def is_valid(self):
         if self.data['temperature'] is None:
             return False
@@ -134,10 +135,9 @@ def getCurrentData() -> WeatherReport:
 
 if __name__ == "__main__":
     current_weather = getCurrentData()
-    print(current_weather)
     if current_weather.is_valid():
         current_weather.write_to_influxdb()
     else:
-        print('Invalid weather report')
+        print('Invalid weather report!')
     
     # TODO implement forecast data
