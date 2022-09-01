@@ -4,6 +4,7 @@ import requests
 import dotenv
 import json
 import argparse
+import time
 from influxdb import InfluxDBClient
 from enum import Enum
 
@@ -253,6 +254,7 @@ if __name__ == "__main__":
             for forecast in forecast_list:
                 if forecast.is_valid() and db_available:
                     forecast.write_to_influxdb(CLIENT)
+                    time.sleep(1) # wait 1 second between writes to influxdb to avoid duplicate entries
                 elif db_available == False:
                     print('Error: influxdb is not available')
                 else:
