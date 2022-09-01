@@ -11,6 +11,7 @@ class ReportType(Enum):
     CURRENT = 1
     FORECAST = 2
     DAILY = 3
+    WEEKLY = 4
 
 class Direction(Enum):
     N = 1
@@ -66,6 +67,8 @@ class WeatherReport:
             measurement = 'forecast_weather'
         elif self.type == ReportType.DAILY:
             measurement = 'today_weather'
+        elif self.type == ReportType.WEEKLY:
+            measurement = 'weekly_weather'
         report_data = [
             {'measurement': measurement,
                 'tags': {'location': self.location},
@@ -131,35 +134,74 @@ def getCurrentData() -> WeatherReport:
         print('Error: {}'.format(e))
         return None
 
-def getDailyForecastData(cnt:int = 5) -> WeatherReport:
+def getDailyForecastData(cnt:int = 7) -> list(WeatherReport):
     print('Getting forecast data from openweathermap for {} days'.format(cnt))
     API_FORECAST_URL='{}forecast/daily?lat={}&lon={}&appid={}&cnt={}&units={}&lang={}'.format(API_BASE_URL, LAT, LON, API_KEY, cnt, UNITS, LANG)    
+    results = []
     try:
         response = requests.get(API_FORECAST_URL)
-        # create the report
-        
+        # create the report        
         if response.status_code == 200:
             res = response.json()
             city = res['city']
-
             # retrieve list of forecast data
             forecasts = res['list']
             for forecast in forecasts:
-                if cnt == 1:
+                if (cnt == 1):
                     weather = WeatherReport(ReportType.DAILY)
-                elif cnt > 1:
+                elif ((cnt > 1) and (cnt < 7)):
                     weather = WeatherReport(ReportType.FORECAST)
+                elif (cnt == 7):
+                    weather = WeatherReport(ReportType.WEEKLY)
                 else:
                     print('Error: invalid cnt value')
                     return None
+
                 # set location and coords
                 weather.location = city['name']
                 weather.coords = city['coord']
                 weather.data['date'] = datetime.fromtimestamp(int(forecast['dt'])).strftime("%Y-%m-%d") # convert unix timestamp to date as string
+                weather.data['sunrise'] = datetime.fromtimestamp(int(forecast['sunrise'])).strftime("%H:%M") # convert unix timestamp to time as string
+                weather.data['sunset'] = datetime.fromtimestamp(int(forecast['sunset'])).strftime("%H:%M") # convert unix timestamp to time as string
+
+                # collect general weather data
+                weather_desc = forecast['weather'][0]
+                weather.data['weather'] = weather_desc['main']
+                weather.data['weather description'] = weather_desc['description']
+                weather.data['weather icon'] = weather_desc['icon']
                 
+                # collect temp data
+                weather.data['temp morning'] = forecast['temp']['morn']
+                weather.data['felt temp morning'] = forecast['feels_like']['morn']
+                weather.data['temp day'] = forecast['temp']['day']
+                weather.data['felt temp day'] = forecast['feels_like']['day']
+                weather.data['temp evening'] = forecast['temp']['eve']
+                weather.data['felt temp evening'] = forecast['feels_like']['eve']
+                weather.data['temp night'] = forecast['temp']['night']
+                weather.data['felt temp night'] = forecast['feels_like']['night']
+                weather.data['temp min'] = forecast['temp']['min']
+                weather.data['temp max'] = forecast['temp']['max']
+                
+                # collect other data
+                weather.data['pressure'] = forecast['pressure']
+                weather.data['humidity'] = forecast['humidity']
+                weather.data['cloud coverage'] = forecast['clouds']
+                weather.data['wind speed'] = forecast['speed']
+                weather.data['wind deg'] = forecast['deg']
+                weather.data['wind gust'] = forecast['gust']
+                weather.data['pop'] = forecast['pop']
+
+                # collect rain data
+                if 'rain' in forecast:
+                    weather.data['rain volume'] = forecast['rain']
+                if 'snow' in forecast:
+                    weather.data['snow volume'] = forecast['snow']
+
+                results.append(weather)
         else:
             print('Error: {}, response: {}'.format(response.status_code, response.content))
-        return weather
+        
+        return results            
     except Exception as e:
         print('Error: {}'.format(e))
         return None
@@ -171,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--current', action='store_true', help='get current weather data')
     parser.add_argument('-f', '--forecast', action='store_true', help='get forecast weather data')
     parser.add_argument('-d', '--daily', action='store_true', help='get daily weather data')
-    parser.add_argument('-n', '--numdays', type=int, default=5, help='number of days to get forecast data for')
+    parser.add_argument('-n', '--numdays', type=int, default=7, help='number of days to get forecast data for')
     parser.add_argument('--ignore_db', action='store_true', default=False, help="don't write to influxdb, good for testing")
     
     args = parser.parse_args()
@@ -199,7 +241,7 @@ if __name__ == "__main__":
     
     # todays forecast data
     if args.daily:
-        todays_forecast = getDailyForecastData(cnt=1)
+        todays_forecast = getDailyForecastData(cnt=1)[0] # get only the first day
         if todays_forecast.is_valid() and db_available:
             todays_forecast.write_to_influxdb(CLIENT)
         elif db_available == False:
@@ -210,12 +252,13 @@ if __name__ == "__main__":
     if args.forecast:
         if args.numdays > 1 and args.numdays <= 16:
             # get daily forecast data
-            forecast_weather = getDailyForecastData()
-            if forecast_weather.is_valid() and db_available:
-                forecast_weather.write_to_influxdb(CLIENT)
-            elif db_available == False:
-                print('Error: influxdb is not available')
-            else:    
-                print('Invalid weather forecast report!')
+            forecast_list = getDailyForecastData()
+            for forecast in forecast_list:
+                if forecast.is_valid() and db_available:
+                    forecast.write_to_influxdb(CLIENT)
+                elif db_available == False:
+                    print('Error: influxdb is not available')
+                else:
+                    print('Invalid forecast weather report!')
         else:
             print('Error: invalid number of days, choose between 1 and 16')
