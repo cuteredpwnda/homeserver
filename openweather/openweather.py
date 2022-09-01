@@ -3,12 +3,14 @@ from datetime import datetime
 import requests
 import dotenv
 import json
+import argparse
 from influxdb import InfluxDBClient
 from enum import Enum
 
 class ReportType(Enum):
     CURRENT = 1
     FORECAST = 2
+    DAILY = 3
 
 class Direction(Enum):
     N = 1
@@ -38,13 +40,13 @@ LON = os.getenv('LON')
 API_KEY = os.getenv('API_KEY')
 UNITS = 'metric'
 LANG = 'de'
-API_URL='https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}&units={}&lang={}'.format(LAT, LON, API_KEY, UNITS, LANG)
+API_BASE_URL = 'http://api.openweathermap.org/data/2.5/'
 
 CLIENT = InfluxDBClient(host=os.getenv('INFLUXDB_HOST'),
-                        port=os.getenv('INFLUXDB_PORT'),
-                        username=os.getenv('INFLUXDB_USER'),
-                        password=os.getenv('INFLUXDB_PASSWORD'),
-                        database=os.getenv('INFLUXDB_DATABASE'))
+                                port=os.getenv('INFLUXDB_PORT'),
+                                username=os.getenv('INFLUXDB_USER'),
+                                password=os.getenv('INFLUXDB_PASSWORD'),
+                                database=os.getenv('INFLUXDB_DATABASE'))
 
 class WeatherReport:
     def __init__(self, type: ReportType):
@@ -57,11 +59,13 @@ class WeatherReport:
     def __str__(self):
         return json.dumps(self.data, indent=4, sort_keys=True, ensure_ascii=False)
     
-    def write_to_influxdb(self):
+    def write_to_influxdb(self, client):
         if self.type == ReportType.CURRENT:
             measurement = 'current_weather'
         elif self.type == ReportType.FORECAST:
             measurement = 'forecast_weather'
+        elif self.type == ReportType.DAILY:
+            measurement = 'today_weather'
         report_data = [
             {'measurement': measurement,
                 'tags': {'location': self.location},
@@ -69,19 +73,21 @@ class WeatherReport:
                 'fields': self.data
             }
         ]
-        CLIENT.write_points(report_data)
+        client.write_points(report_data)
+        
 
     # TODO improve validity check
     def is_valid(self):
-        if self.data['temperature'] is None:
+        if self.location is None:
             return False
         else:
             return True
 
 def getCurrentData() -> WeatherReport:
     print('Getting data from openweathermap')
+    API_CURRENT_URL='{}weather?lat={}&lon={}&appid={}&units={}&lang={}'.format(API_BASE_URL, LAT, LON, API_KEY, UNITS, LANG)
     try:
-        response = requests.get(API_URL)
+        response = requests.get(API_CURRENT_URL)
         # create the report
         weather = WeatherReport(ReportType.CURRENT)
         if response.status_code == 200:
@@ -101,8 +107,6 @@ def getCurrentData() -> WeatherReport:
             # main data
             main = res['main']
             weather.data['temperature'] = main['temp']
-            weather.data['temperature min'] = main['temp_min']
-            weather.data['temperature max'] = main['temp_max']
             weather.data['felt temp'] = main['feels_like']
             weather.data['humidity'] = main['humidity']
             weather.data['pressure'] = main['pressure']
@@ -113,12 +117,6 @@ def getCurrentData() -> WeatherReport:
             wind = res['wind']
             weather.data['wind speed'] = wind['speed']
             weather.data['wind deg'] = wind['deg']
-
-            # sunrise and sunset
-            tz_shift = int(res['timezone'])
-            print('tz_shift: {}'.format(tz_shift))
-            weather.data['sunrise'] = datetime.utcfromtimestamp(int(res['sys']['sunrise'] + tz_shift)).strftime('%H:%M:%S')
-            weather.data['sunset'] = datetime.utcfromtimestamp(int(res['sys']['sunset'] + tz_shift)).strftime('%H:%M:%S')
 
             if 'rain' in res:
                 weather.data['rain next hour'] = res['rain']['1h']
@@ -133,11 +131,91 @@ def getCurrentData() -> WeatherReport:
         print('Error: {}'.format(e))
         return None
 
+def getDailyForecastData(cnt:int = 5) -> WeatherReport:
+    print('Getting forecast data from openweathermap for {} days'.format(cnt))
+    API_FORECAST_URL='{}forecast/daily?lat={}&lon={}&appid={}&cnt={}&units={}&lang={}'.format(API_BASE_URL, LAT, LON, API_KEY, cnt, UNITS, LANG)    
+    try:
+        response = requests.get(API_FORECAST_URL)
+        # create the report
+        
+        if response.status_code == 200:
+            res = response.json()
+            city = res['city']
+
+            # retrieve list of forecast data
+            forecasts = res['list']
+            for forecast in forecasts:
+                if cnt == 1:
+                    weather = WeatherReport(ReportType.DAILY)
+                elif cnt > 1:
+                    weather = WeatherReport(ReportType.FORECAST)
+                else:
+                    print('Error: invalid cnt value')
+                    return None
+                # set location and coords
+                weather.location = city['name']
+                weather.coords = city['coord']
+                weather.data['date'] = datetime.fromtimestamp(int(forecast['dt'])).strftime("%Y-%m-%d") # convert unix timestamp to date as string
+                
+        else:
+            print('Error: {}, response: {}'.format(response.status_code, response.content))
+        return weather
+    except Exception as e:
+        print('Error: {}'.format(e))
+        return None
+
 if __name__ == "__main__":
-    current_weather = getCurrentData()
-    if current_weather.is_valid():
-        current_weather.write_to_influxdb()
-    else:
-        print('Invalid weather report!')
+
+    # read args
+    parser = argparse.ArgumentParser(description='Get weather data from openweathermap and write it to influxdb')
+    parser.add_argument('-c', '--current', action='store_true', help='get current weather data')
+    parser.add_argument('-f', '--forecast', action='store_true', help='get forecast weather data')
+    parser.add_argument('-d', '--daily', action='store_true', help='get daily weather data')
+    parser.add_argument('-n', '--numdays', type=int, default=5, help='number of days to get forecast data for')
+    parser.add_argument('--ignore_db', action='store_true', default=False, help="don't write to influxdb, good for testing")
     
-    # TODO implement forecast data
+    args = parser.parse_args()
+    print(args)
+
+    # init db connection
+    db_available = False
+
+    if not args.ignore_db:
+        try:
+            CLIENT.ping()
+            db_available = True
+        except Exception as e:
+            print('Error: {}'.format(e))
+
+    # get current weather data
+    if args.current:
+        current_weather = getCurrentData()
+        if current_weather.is_valid() and db_available:
+            current_weather.write_to_influxdb(CLIENT)
+        elif db_available == False:
+            print('Error: influxdb is not available')
+        else:
+            print('Invalid current weather report!')
+    
+    # todays forecast data
+    if args.daily:
+        todays_forecast = getDailyForecastData(cnt=1)
+        if todays_forecast.is_valid() and db_available:
+            todays_forecast.write_to_influxdb(CLIENT)
+        elif db_available == False:
+            print('Error: influxdb is not available')
+        else:
+            print('Invalid daily weather report!')
+    
+    if args.forecast:
+        if args.numdays > 1 and args.numdays <= 16:
+            # get daily forecast data
+            forecast_weather = getDailyForecastData()
+            if forecast_weather.is_valid() and db_available:
+                forecast_weather.write_to_influxdb(CLIENT)
+            elif db_available == False:
+                print('Error: influxdb is not available')
+            else:    
+                print('Invalid weather forecast report!')
+        else:
+            print('Error: invalid number of days, choose between 1 and 16')
