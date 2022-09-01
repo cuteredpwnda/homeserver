@@ -95,6 +95,7 @@ def getCurrentData() -> WeatherReport:
             weather_desc = res['weather'][0]
             weather.data['weather'] = weather_desc['main']
             weather.data['weather description'] = weather_desc['description']
+            weather.data['weather icon'] = weather_desc['icon']
 
             # main data
             main = res['main']
