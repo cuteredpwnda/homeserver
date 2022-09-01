@@ -64,16 +64,20 @@ class WeatherReport:
     def write_to_influxdb(self, client):
         if self.type == ReportType.CURRENT:
             measurement = 'current_weather'
-        elif self.type == ReportType.FORECAST:
-            measurement = 'forecast_weather'
-        elif self.type == ReportType.DAILY:
-            measurement = 'today_weather'
-        elif self.type == ReportType.WEEKLY:
-            measurement = 'weekly_weather'
+            time = self.timestamp
+        else:
+            time = self.data['date']
+            if (self.type == ReportType.FORECAST):
+                measurement = 'forecast_weather'
+            elif (self.type == ReportType.DAILY):
+                measurement = 'today_weather'
+            elif self.type == ReportType.WEEKLY:
+                measurement = 'weekly_weather'
+        
         report_data = [
             {'measurement': measurement,
                 'tags': {'location': self.location},
-                'time': self.timestamp,
+                'time': time,
                 'fields': self.data
             }
         ]
@@ -238,6 +242,7 @@ if __name__ == "__main__":
             print('Invalid current weather report!')
     
     # todays forecast data
+    
     if args.daily:
         todays_forecast = getDailyForecastData(cnt=1)[0] # get only the first day
         if todays_forecast.is_valid() and db_available:
