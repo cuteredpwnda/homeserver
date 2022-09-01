@@ -190,7 +190,7 @@ def getDailyForecastData(cnt = 7) -> list:
                 weather.data['wind speed'] = forecast['speed']
                 weather.data['wind deg'] = forecast['deg']
                 weather.data['wind gust'] = forecast['gust']
-                weather.data['pop'] = forecast['pop']
+                weather.data['pop'] = int(forecast['pop']*100) # convert to percent
 
                 # collect rain data
                 if 'rain' in forecast:
@@ -254,7 +254,7 @@ if __name__ == "__main__":
             for forecast in forecast_list:
                 if forecast.is_valid() and db_available:
                     forecast.write_to_influxdb(CLIENT)
-                    time.sleep(1) # wait 1 second between writes to influxdb to avoid duplicate entries
+                    time.sleep(0.1) # wait 0.1 ms between writes to influxdb to avoid duplicate entries
                 elif db_available == False:
                     print('Error: influxdb is not available')
                 else:
