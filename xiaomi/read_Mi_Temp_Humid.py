@@ -31,7 +31,7 @@ def get_temperature(sensor):
                     break
                 if 'reading failed' in line or 'error' in line:
                     print('current retries: {}'.format(retries))
-                    if retries >= 5:
+                    if retries >= 3:
                         print('Too many retries - giving up')
                         return
                     else:
