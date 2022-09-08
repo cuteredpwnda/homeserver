@@ -100,7 +100,7 @@ def getCurrentData() -> WeatherReport:
         weather = WeatherReport(ReportType.CURRENT)
         if response.status_code == 200:
             res = response.json()
-            print(res)
+            
             # set location and coords
             weather.location = res['name']
             weather.coords['lat'] = res['coord']['lat']
