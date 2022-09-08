@@ -100,7 +100,7 @@ def getCurrentData() -> WeatherReport:
         weather = WeatherReport(ReportType.CURRENT)
         if response.status_code == 200:
             res = response.json()
-            
+            print(res)
             # set location and coords
             weather.location = res['name']
             weather.coords['lat'] = res['coord']['lat']
@@ -128,10 +128,12 @@ def getCurrentData() -> WeatherReport:
 
             if 'rain' in res:
                 weather.data['rain next hour'] = res['rain']['1h']
-                weather.data['rain next 3 hours'] = res['rain']['3h'] 
+                if '3h' in res['rain']:
+                    weather.data['rain next 3 hours'] = res['rain']['3h']
             if 'snow' in res:
                 weather.data['snow next hour'] = res['snow']['1h']
-                weather.data['snow next 3 hours'] = res['snow']['3h']
+                if '3h' in res['snow']:    
+                    weather.data['snow next 3 hours'] = res['snow']['3h']
         else:
             print('Error: {}, response: {}'.format(response.status_code, response.content))
         return weather
