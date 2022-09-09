@@ -26,7 +26,6 @@ def get_temperature(sensor):
         with subprocess.Popen(['sh', '{}/sensors/./{}'.format(BASEPATH, sensor)], stdout=subprocess.PIPE) as proc:
             while True:
                 line = proc.stdout.readline().decode('utf-8').rstrip()
-                print(line)
                 if not line:
                     break
                 if 'reading failed' in line or 'error' in line:
