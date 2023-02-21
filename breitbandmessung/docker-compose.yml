@@ -1,8 +1,0 @@
-version: '3'
-services:
-  breitbandmessung:
-    image: "elschnagoo/breitbandmessung:latest"
-    volumes:
-      - ./export:/app/export
-    environment:
-      CRON: '18 8-22 * * *'
