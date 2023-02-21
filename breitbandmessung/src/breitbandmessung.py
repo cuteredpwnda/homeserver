@@ -1,6 +1,5 @@
 import os
 import glob
-import time
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
@@ -23,7 +22,9 @@ def get_data():
     accept_policy_selector = 'button.btn:nth-child(2)'
     download_results_selector = 'button.px-0:nth-child(1)'
 
-    #download_path = '../export'
+    # check if export folder exists, if not create it
+    if not os.path.exists('../export'):
+        os.makedirs('../export')
     download_path = os.path.abspath('../export')
 
     BASE_URL = 'https://breitbandmessung.de'
@@ -136,4 +137,3 @@ def _set_viewport_size(driver, width, height):
 if __name__ == '__main__':
     get_data()
     handle_data()
-    
